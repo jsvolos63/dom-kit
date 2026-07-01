@@ -1,0 +1,31 @@
+# Runs the kit's test suite on every push and PR. jsdom (devDependency) backs
+# the Group B DOM tests in test.mjs, so an install step is required even though
+# index.js itself has no dependencies.
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax-check the shipped module
+        run: node --check index.js
+
+      - name: Install dev dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
