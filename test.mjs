@@ -1,4 +1,4 @@
-// Tests for @jfs/dom-kit. Run with `node test.mjs`.
+// Tests for @jfs/dom-kit. Run with `node --test test.mjs` (or `npm test`).
 //
 // Group A (pure) functions are tested with no DOM. Group B (DOM-dependent)
 // functions get a DOM shim from `jsdom` (a devDependency only — index.js
@@ -8,6 +8,7 @@
 // synthesizes a full html/body document for `text/html` fragments — which is
 // what sanitizeHtml's `doc.body.firstChild` relies on (matching browsers).
 
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 // --- Install a DOM shim on globals (devDependency only) --------------------
@@ -23,14 +24,7 @@ const {
     el, elem, byId, $, $$, sanitizeHtml,
 } = await import('./index.js');
 
-let passed = 0;
-function test(name, fn) {
-    fn();
-    passed++;
-    console.log(`  ✓ ${name}`);
-}
-
-console.log('Group A — pure helpers');
+// --- Group A — pure helpers -------------------------------------------------
 
 // --- escapeHtml (all 5 chars) ----------------------------------------------
 test('escapeHtml escapes all five significant characters', () => {
@@ -109,7 +103,7 @@ test('sanitizeHref rejects non-http(s) → ""', () => {
     assert.equal(sanitizeHref('javascript:alert(1)'), '');
 });
 
-console.log('Group B — DOM-dependent helpers');
+// --- Group B — DOM-dependent helpers ----------------------------------------
 
 // --- el() auto-escaping + special keys -------------------------------------
 test('el() auto-escapes string children', () => {
@@ -186,5 +180,3 @@ test('sanitizeHtml nullish/empty → ""', () => {
     assert.equal(sanitizeHtml(null), '');
     assert.equal(sanitizeHtml(''), '');
 });
-
-console.log(`\nAll ${passed} tests passed.`);
