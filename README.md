@@ -121,12 +121,35 @@ fragments, which `sanitizeHtml`'s `doc.body.firstChild` relies on.
 ## Distribution / consumption
 
 These siblings are **buildless** — they load ES modules directly in the browser
-and can't `npm install` at runtime. Follow `netlify-kit`'s vendoring model:
-consumers pin `github:jsvolos63/dom-kit` in `package.json` and run a small
-`scripts/vendor-dom-kit.mjs` that copies `index.js` into the app tree (see
-market-monitor's `scripts/vendor-netlify-kit.mjs` + `npm run vendor:sync` /
-`vendor:check` CI gate for the exact pattern to replicate). A single
-dependency-free `index.js` is what makes that copy trivial.
+and can't `npm install` at runtime. Consumers pin `github:jsvolos63/dom-kit`
+in `package.json` (full commit SHA) and commit a generated copy of the kit
+into the app tree, with a CI drift check.
+
+The kit ships its own vendoring CLI (`bin/vendor.mjs`, exposed as
+`jfs-dom-kit-vendor`), so consumers no longer hand-roll a
+`scripts/vendor-dom-kit.mjs`. Wire it into npm scripts:
+
+```jsonc
+{
+  "scripts": {
+    // plain ESM copy (what module-based consumers import):
+    "vendor:sync":  "jfs-dom-kit-vendor --format esm --out js/vendor/dom-kit/index.js",
+    "vendor:check": "jfs-dom-kit-vendor --format esm --out js/vendor/dom-kit/index.js --check"
+  }
+}
+```
+
+Formats for classic-script (non-module) consumers:
+
+- `--format global --name JfsDomKit` — IIFE exposing the API on
+  `globalThis.JfsDomKit` (add `--pick escapeHtml,safeUrl` to expose a subset);
+- `--format bare` — `export`-stripped copy for concatenation into a
+  classic-script bundle;
+- `--format cjs` — CommonJS transform for `require()` consumers.
+
+The exposed surface is derived from `index.js`'s own `export` declarations —
+never a hand-maintained list. `--check` makes the same invocation double as
+the consumer's CI drift gate.
 
 ## Consumer migration checklist (follow-up — not done in this session)
 
