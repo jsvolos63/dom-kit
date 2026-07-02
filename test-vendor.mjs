@@ -63,6 +63,15 @@ test('esm format: provenance header + verbatim source', () => {
   assert.ok(out.endsWith(source), 'esm output must end with the unmodified source');
 });
 
+// The surface map is the object literal assigned at the very end of the
+// generated file; slice from the assignment marker so indented `key:` lines
+// in the kit's own source can't be mistaken for surface entries.
+function surfaceMapNames(out, marker) {
+  const idx = out.indexOf(marker);
+  assert.notEqual(idx, -1, `generated output must contain "${marker}"`);
+  return [...out.slice(idx).matchAll(/^  ([A-Za-z0-9_$]+): /gm)].map((m) => m[1]);
+}
+
 test('global format: parseable classic script exposing every export on the named global', () => {
   const dir = freshDir();
   const r = run(['--format', 'global', '--name', 'TestKitGlobal', '--out', 'out.global.js'], dir);
@@ -70,11 +79,9 @@ test('global format: parseable classic script exposing every export on the named
   const file = join(dir, 'out.global.js');
   const out = readFileSync(file, 'utf8');
   assert.equal(syntaxCheck(file).status, 0, 'global output must parse as a classic script');
-  assert.ok(out.includes('globalThis.TestKitGlobal = {'));
   assert.ok(!/^export\s/m.test(out), 'no export keywords may survive');
-  for (const name of NAMES) {
-    assert.ok(new RegExp(`^  ${name.replace(/\$/g, '\\$')}:`, 'm').test(out), `surface map must expose ${name}`);
-  }
+  const mapped = surfaceMapNames(out, 'globalThis.TestKitGlobal = {');
+  assert.deepEqual([...mapped].sort(), [...NAMES].sort(), 'surface map must expose exactly the derived exports');
 });
 
 test('global format: --name is required and validated', () => {
@@ -89,8 +96,8 @@ test('global format: --pick narrows the surface and rejects unknown names', () =
   const r = run(['--format', 'global', '--name', 'G', '--pick', pickTwo.join(','), '--out', 'picked.js'], dir);
   assert.equal(r.status, 0, r.stderr);
   const out = readFileSync(join(dir, 'picked.js'), 'utf8');
-  const mapped = [...out.matchAll(/^  ([A-Za-z0-9_$]+):/gm)].map((m) => m[1]);
-  assert.deepEqual(mapped.sort(), [...pickTwo].sort());
+  const mapped = surfaceMapNames(out, 'globalThis.G = {');
+  assert.deepEqual([...mapped].sort(), [...pickTwo].sort());
 
   const bad = run(['--format', 'global', '--name', 'G', '--pick', 'definitelyNotAnExport', '--out', 'x.js'], dir);
   assert.notEqual(bad.status, 0);
@@ -105,7 +112,9 @@ test('bare format: parseable, export-free, no global assignment', () => {
   const out = readFileSync(file, 'utf8');
   assert.equal(syntaxCheck(file).status, 0, 'bare output must parse as a classic script');
   assert.ok(!/^export\s/m.test(out), 'no export keywords may survive');
-  assert.ok(!out.includes('globalThis.'), 'bare output must not assign a global');
+  // The kit source may legitimately *reference* globalThis; what bare must
+  // not do is emit the surface-map assignment the global format adds.
+  assert.ok(!/^globalThis\.[A-Za-z_$][A-Za-z0-9_$]* = \{$/m.test(out), 'bare output must not assign a surface global');
   assert.ok(!out.includes('module.exports'));
 });
 
@@ -116,10 +125,8 @@ test('cjs format: parseable and exports the full derived surface', () => {
   const file = join(dir, 'out.cjs');
   const out = readFileSync(file, 'utf8');
   assert.equal(syntaxCheck(file).status, 0, 'cjs output must parse');
-  assert.ok(out.includes('module.exports = {'));
-  for (const name of NAMES) {
-    assert.ok(new RegExp(`^  ${name.replace(/\$/g, '\\$')}:`, 'm').test(out), `module.exports must include ${name}`);
-  }
+  const mapped = surfaceMapNames(out, 'module.exports = {');
+  assert.deepEqual([...mapped].sort(), [...NAMES].sort(), 'module.exports must expose exactly the derived exports');
 });
 
 test('--check: passes in sync, fails on drift, fails when missing', () => {
