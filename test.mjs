@@ -66,6 +66,13 @@ test('safeUrl null/empty → "#"', () => {
     assert.equal(safeUrl(null), '#');
     assert.equal(safeUrl('   '), '#');
 });
+test('safeUrl strips C0 controls + DEL before scheme checks', () => {
+    // Browsers drop tab/newline/NUL before resolving a scheme, so the guard
+    // must judge — and return — the control-stripped form.
+    assert.equal(safeUrl('java\tscript:alert(1)'), '#');
+    assert.equal(safeUrl('\u0000javascript:alert(1)'), '#');
+    assert.equal(safeUrl('https://x.com/\u0001a\u007Fb'), 'https://x.com/ab');
+});
 
 // --- safeImageUrl (reject → "") --------------------------------------------
 test('safeImageUrl allows data:image/* but rejects other data:', () => {
@@ -78,6 +85,10 @@ test('safeImageUrl allows http(s), protocol-relative, blob:; rejects mailto/js',
     assert.equal(safeImageUrl('blob:abc'), 'blob:abc');
     assert.equal(safeImageUrl('mailto:a@b.com'), '');
     assert.equal(safeImageUrl('javascript:alert(1)'), '');
+});
+test('safeImageUrl strips C0 controls + DEL before scheme checks', () => {
+    assert.equal(safeImageUrl('data:\ttext/html,<script>'), '');
+    assert.equal(safeImageUrl('data:image\u0000/png;base64,AA'), 'data:image/png;base64,AA');
 });
 
 // --- sanitizeUrl (JFS semantics: HTML-escaped, reject → "") ----------------
@@ -153,12 +164,38 @@ test('byId / $ / $$ query the document', () => {
 test('sanitizeHtml unwraps unknown tags but keeps their text', () => {
     // The wrapper the sanitizer parses is `<div>${str}</div>`, so top-level
     // nodes of `str` are the ones _scrub visits directly.
-    const out = sanitizeHtml('hello <script>alert(1)</script><div>kept</div>world');
+    const out = sanitizeHtml('hello <div>kept</div>world');
     assert.ok(!/<div>/i.test(out));    // unknown block tag unwrapped
-    assert.ok(!/<script>/i.test(out)); // script tag unwrapped (its raw text stays)
     assert.ok(out.includes('hello'));
     assert.ok(out.includes('kept'));   // unwrapped div's text preserved
     assert.ok(out.includes('world'));
+});
+test('sanitizeHtml drops blocked tags WITH their subtree (no unwrap)', () => {
+    const out = sanitizeHtml('a<script>alert(1)</script><style>p{}</style><iframe src="x"></iframe>b');
+    assert.equal(out, 'ab');           // raw script/style text must NOT survive
+    const form = sanitizeHtml('x<form><input value="y"><button>go</button></form>z');
+    assert.ok(!/form|input|button|value="y"|go/i.test(form));
+});
+test('sanitizeHtml drops foreign-content (SVG/MathML) subtrees entirely', () => {
+    // Unwrapping foreign content into an HTML sink is the classic mXSS vector:
+    // <style> inside <svg> stays in the SVG namespace and its children would
+    // re-parse as live markup if unwrapped into an innerHTML sink.
+    const out = sanitizeHtml('a<svg><style>&lt;img src=x onerror=alert(1)&gt;</style></svg>b');
+    assert.equal(out, 'ab');
+    const math = sanitizeHtml('a<math><mi>x</mi></math>b');
+    assert.equal(math, 'ab');
+    // <p> inside <svg> triggers HTML-parser breakout — it is genuine HTML
+    // content, not foreign content, and survives as usual.
+    const breakout = sanitizeHtml('a<svg><p>inside</p></svg>b');
+    assert.ok(breakout.includes('<p>inside</p>'));
+});
+test('sanitizeHtml caps recursion depth fail-closed', () => {
+    // 300 nested <em> exceeds _MAX_DEPTH (256); the overflow region is emptied
+    // rather than passed through unsanitized.
+    const deep = '<em>'.repeat(300) + '<a href="javascript:x">boom</a>' + '</em>'.repeat(300);
+    const out = sanitizeHtml(deep);
+    assert.ok(!out.includes('javascript:'));
+    assert.ok(!out.includes('boom'));
 });
 test('sanitizeHtml keeps allowed tags and drops disallowed attrs', () => {
     const out = sanitizeHtml('<p onclick="x()">hi <b>bold</b></p>');
