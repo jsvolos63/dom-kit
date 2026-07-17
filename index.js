@@ -286,6 +286,14 @@ function _scrub(node, depth = 0) {
             if (!_ALLOWED_TAGS.has(tag)) {
                 // Unwrap unknown tags: keep the children, drop the wrapper. This
                 // preserves text content from things like <div>/<font>/<img>.
+                //
+                // CRITICAL: scrub the subtree BEFORE hoisting it. The outer loop
+                // iterates a snapshot (`kids`) taken before this insertion, so
+                // nodes moved up to `node` here are never revisited — hoisting
+                // an unscrubbed <script>/onerror/javascript: child would ship it
+                // verbatim. Scrubbing while the children are still inside `child`
+                // cleans them in place, then we lift the now-safe result.
+                _scrub(child, depth + 1);
                 while (child.firstChild) node.insertBefore(child.firstChild, child);
                 node.removeChild(child);
                 continue;
