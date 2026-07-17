@@ -98,9 +98,17 @@ node.innerHTML = sanitizeHtml(feed.contentHtml);
 - **`sanitizeHtml(html)`** — whitelist sanitizer (DOMParser + `_scrub`
   recursion). Allowed tags: `a abbr b blockquote br cite code dd dl dt em i li
   ol p pre small span strong sub sup u ul`; allowed attrs `href` / `title` only
-  (per the allow-map); unknown tags are unwrapped (children kept); `href` runs
-  through `safeUrl` and real links get `target="_blank" rel="noopener
-  noreferrer"`; comments / PIs dropped.
+  (per the allow-map); blocked tags (`script style iframe noscript form input
+  button select textarea svg math video audio object embed link meta base
+  title template`) are removed **with their subtree**; other unknown tags are
+  unwrapped (children kept); foreign-content (SVG/MathML-namespace) elements
+  are dropped entirely (mXSS guard); recursion is depth-capped fail-closed;
+  `href` runs through `safeUrl` and real links get `target="_blank"
+  rel="noopener noreferrer"`; comments / PIs dropped.
+
+  URL guards (`safeUrl` / `safeImageUrl`) strip all C0 controls + DEL before
+  scheme checks, matching `@jfs/news-kit`'s `isSafeContentUrl` — browsers drop
+  tab/newline/NUL from a URL before resolving its scheme.
 
 ## Testing
 

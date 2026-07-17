@@ -36,6 +36,12 @@ const HTML_ESCAPES = {
 };
 const HTML_ESCAPE_REGEX = /[&<>"']/g;
 
+// Strip ALL C0 controls + DEL anywhere in a URL before scheme checks (matching
+// @jfs/news-kit's isSafeContentUrl). Browsers drop tab/newline/NUL from a URL
+// before resolving its scheme, so control characters embedded in an accepted
+// URL must not survive into the returned value either.
+const URL_CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+
 /**
  * Escape a string for safe insertion into innerHTML — including HTML
  * attribute contexts. Coerces non-string values via String() and treats
@@ -59,7 +65,7 @@ export { escapeHtml as escHtml, escapeHtml as escAttr };
  */
 export function safeUrl(url) {
     if (url == null) return "#";
-    const s = String(url).trim();
+    const s = String(url).replace(URL_CONTROL_CHARS, "").trim();
     if (!s) return "#";
     // Protocol-relative is treated as https. This check has to run before the
     // single-slash check below, otherwise "//evil.com" would return verbatim
@@ -81,7 +87,7 @@ export function safeUrl(url) {
  */
 export function safeImageUrl(url) {
     if (url == null) return "";
-    const s = String(url).trim();
+    const s = String(url).replace(URL_CONTROL_CHARS, "").trim();
     if (!s) return "";
     if (s.startsWith("//")) return "https:" + s;
     const lower = s.toLowerCase();
@@ -225,6 +231,21 @@ const _ALLOWED_ATTRS = {
     span: new Set(["title"]),
 };
 
+// Tags whose ENTIRE SUBTREE is removed rather than unwrapped. Unwrapping
+// <script>/<style> would keep their raw text as visible content, and
+// unwrapping form controls invites UI redressing. Mirrors news-kit's
+// DEFAULT_BLOCKED (lowercase — _scrub compares lowercased tag names).
+const _BLOCKED_TAGS = new Set([
+    "script", "style", "iframe", "noscript", "form", "input", "button",
+    "select", "textarea", "svg", "math", "video", "audio", "object", "embed",
+    "link", "meta", "base", "title", "template",
+]);
+
+const _XHTML_NS = "http://www.w3.org/1999/xhtml";
+
+// Bound recursion so deeply-nested hostile HTML can't overflow the stack.
+const _MAX_DEPTH = 256;
+
 export function sanitizeHtml(html) {
     if (html == null) return "";
     const str = String(html);
@@ -236,12 +257,32 @@ export function sanitizeHtml(html) {
     return root.innerHTML;
 }
 
-function _scrub(node) {
+function _scrub(node, depth = 0) {
+    // Fail CLOSED past the depth cap: this scrub mutates in place, so bailing
+    // out with the subtree intact would keep UNsanitized markup. Empty the
+    // node instead.
+    if (depth > _MAX_DEPTH) {
+        node.textContent = "";
+        return;
+    }
     // Walk children with a snapshot — replacing nodes mutates the live list.
     const kids = Array.from(node.childNodes);
     for (const child of kids) {
         if (child.nodeType === 1 /* Element */) {
+            // Foreign-content (SVG/MathML) elements have lowercase tag names in
+            // their own namespace; unwrapping them into an HTML sink can
+            // resurrect HTML-breakout children (mXSS). Drop non-XHTML elements
+            // entirely, subtree included.
+            if (child.namespaceURI && child.namespaceURI !== _XHTML_NS) {
+                node.removeChild(child);
+                continue;
+            }
             const tag = child.tagName.toLowerCase();
+            if (_BLOCKED_TAGS.has(tag)) {
+                // Remove the element AND its subtree — never unwrap these.
+                node.removeChild(child);
+                continue;
+            }
             if (!_ALLOWED_TAGS.has(tag)) {
                 // Unwrap unknown tags: keep the children, drop the wrapper. This
                 // preserves text content from things like <div>/<font>/<img>.
@@ -267,7 +308,7 @@ function _scrub(node) {
                     }
                 }
             }
-            _scrub(child);
+            _scrub(child, depth + 1);
         } else if (child.nodeType !== 3 /* Text */ && child.nodeType !== 4 /* CDATA */) {
             // Drop comments, processing instructions, etc.
             node.removeChild(child);
