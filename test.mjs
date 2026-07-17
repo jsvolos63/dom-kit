@@ -170,6 +170,23 @@ test('sanitizeHtml unwraps unknown tags but keeps their text', () => {
     assert.ok(out.includes('kept'));   // unwrapped div's text preserved
     assert.ok(out.includes('world'));
 });
+test('sanitizeHtml SCRUBS children of unwrapped unknown tags (XSS regression)', () => {
+    // Regression: the unwrap branch used to hoist an unknown tag's children
+    // into the parent WITHOUT scrubbing them — and the outer loop iterates a
+    // pre-insertion snapshot, so the hoisted nodes were never revisited. Any
+    // <div>-wrapped payload (i.e. essentially all real publisher markup)
+    // sailed through verbatim. Every case below must be neutralized.
+    assert.equal(sanitizeHtml('<div><img src=x onerror=alert(1)></div>'), '');
+    assert.equal(sanitizeHtml('<div><script>alert(1)</script></div>'), '');
+    assert.ok(!/onerror/i.test(sanitizeHtml('<section><div><img src=x onerror=alert(1)></div></section>')));
+    assert.ok(!/<script/i.test(sanitizeHtml('<span-x><div><script>alert(1)</script></div></span-x>')));
+    const jsHref = sanitizeHtml('<div><a href="javascript:alert(1)">click</a></div>');
+    assert.ok(jsHref.includes('href="#"') && !/javascript:/i.test(jsHref));
+    const onclick = sanitizeHtml('<div><p onclick="alert(1)">hi</p></div>');
+    assert.ok(/<p>hi<\/p>/i.test(onclick) && !/onclick/i.test(onclick));
+    // Legit content inside an unknown wrapper still survives, cleaned.
+    assert.equal(sanitizeHtml('x <div>keep <b>me</b></div> y'), 'x keep <b>me</b> y');
+});
 test('sanitizeHtml drops blocked tags WITH their subtree (no unwrap)', () => {
     const out = sanitizeHtml('a<script>alert(1)</script><style>p{}</style><iframe src="x"></iframe>b');
     assert.equal(out, 'ab');           // raw script/style text must NOT survive
