@@ -84,6 +84,9 @@ export function safeUrl(url) {
  * Allow only http(s), protocol-relative, blob:, and data:image/* URLs as
  * <img src>. Everything else (javascript:, data:text/html, vbscript:, file:,
  * …) returns an empty string so the browser doesn't issue any request.
+ *
+ * NOTE: permits `data:image/*` and is intended for `<img>` src ONLY — do not
+ * reuse for `<object>`/`<embed>`/`<iframe>` src (their data: URLs can execute).
  */
 export function safeImageUrl(url) {
     if (url == null) return "";
@@ -189,6 +192,12 @@ export function el(tag, attrs, ...children) {
                 for (const ek of Object.keys(v)) {
                     node.addEventListener(ek, v[ek]);
                 }
+            } else if (/^on/i.test(k)) {
+                // Never set inline event-handler attributes (onclick/onerror/…)
+                // from a (possibly computed) attr name — that would smuggle
+                // script through the auto-escaping builder. Use the `on` key
+                // for real listeners instead.
+                continue;
             } else {
                 node.setAttribute(k, String(v));
             }

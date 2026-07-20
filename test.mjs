@@ -138,6 +138,14 @@ test('el() on: attaches an event listener that fires', () => {
     b.dispatchEvent(new window.Event('click'));
     assert.equal(fired, 1);
 });
+test('el() drops on* event-handler attribute names', () => {
+    const a = el('a', { onclick: 'x', onerror: 'y', href: '#' });
+    assert.equal(a.getAttribute('onclick'), null);
+    assert.equal(a.getAttribute('onerror'), null);
+    assert.equal(a.hasAttribute('onclick'), false);
+    // normal attributes still work
+    assert.equal(a.getAttribute('href'), '#');
+});
 test('el() flattens array children one level and skips null/false', () => {
     const ul = el('ul', null, [el('li', null, 'a'), null, false, el('li', null, 'b')]);
     assert.equal(ul.querySelectorAll('li').length, 2);
