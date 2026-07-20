@@ -1,6 +1,6 @@
 {
   "name": "@jfs/dom-kit",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Shared, dependency-free DOM/escaping primitives (HTML escaping, URL + image-src guards, dual innerHTML/setAttribute URL sanitizers, whitelist HTML sanitizer, and an auto-escaping el() element builder) extracted from the JFS family of buildless static sites.",
   "type": "module",
   "license": "MIT",
