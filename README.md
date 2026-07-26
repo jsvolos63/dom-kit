@@ -159,23 +159,27 @@ The exposed surface is derived from `index.js`'s own `export` declarations —
 never a hand-maintained list. `--check` makes the same invocation double as
 the consumer's CI drift gate.
 
-## Consumer migration checklist (follow-up — not done in this session)
+## Consumer adoption status
 
-Each is import-path-only except where a call-site note is given. Bump each
-repo's shipped version per its `CLAUDE.md` when you touch shell assets.
+Adopted (each pins the kit by commit SHA and commits a CLI-generated copy,
+gated by `vendor:check` in CI):
 
-- **Art-Gallery-** — `util.js` (`escapeHtml`, `safeUrl`, `safeImageUrl`,
-  `sanitizeHtml`) + `dom.js`. Keeps `$` as CSS-query.
-- **FlightCheck** — `src/dom.js` (`escapeHtml`; `$` → `import { byId as $ }`).
-- **JFS-Sports** — `dom.js` (`el`), `helpers.js` (`escapeHtml`, `sanitizeUrl`,
-  `sanitizeHref`). These are re-exported from an IIFE/namespace today — verify
-  the re-export wiring after swapping the source.
-- **Weather** — `js/lib/dom.js` (`$` → `byId`, `elem` → kit `elem`).
-- **BearsMockDraft** — `shared.js` (`el` has a *different* `(tag, opts)`
-  signature — this one needs **call-site changes**, not just an import swap;
-  `escapeText` / `escapeAttr` → `escapeHtml`, `safeUrl`).
-- **market-monitor** — `js/utils/escape.js` (`escHtml`, `escAttr` → kit
-  aliases). Vendor via the same script pattern it already uses for netlify-kit.
+- **Art-Gallery-** — ESM copy at `dom-kit/index.js`.
+- **FlightCheck** — `src/vendor/dom-kit/index.js`, re-exported through
+  `src/dom.js` (`byId` as `$`, `escapeHtml`).
+- **Weather** — vendored ESM copy, re-exported through `js/lib/dom.js`.
+- **market-monitor** — vendored; `js/utils/escape.js` re-exports the
+  `escHtml` / `escAttr` aliases.
+- **BearsMockDraft** — classic-script global build at
+  `js/vendor/dom-kit/dom-kit.global.js` (`window.JfsDomKit`), behind
+  `escapeText` / `escapeAttr` in `js/shared.js`; its `el` (different
+  `(tag, opts)` signature) and `safeUrl` intentionally stay local.
+- **John's News** — dual-vendored: `vendor/dom-kit/` (server/tests) +
+  `public/vendor/dom-kit/` (browser), CI-diffed byte-identical.
+
+Still on local copies: **JFS-Sports** (`dom.js`'s `el`, `helpers.js`'s
+`escapeHtml` / `sanitizeUrl` / `sanitizeHref` — import-path-only once its
+IIFE re-export wiring is verified).
 
 ## License
 
