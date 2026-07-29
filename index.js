@@ -36,11 +36,15 @@ const HTML_ESCAPES = {
 };
 const HTML_ESCAPE_REGEX = /[&<>"']/g;
 
-// Strip ALL C0 controls + DEL anywhere in a URL before scheme checks (matching
-// @jfs/news-kit's isSafeContentUrl). Browsers drop tab/newline/NUL from a URL
-// before resolving its scheme, so control characters embedded in an accepted
-// URL must not survive into the returned value either.
+// Strip ALL C0 controls + DEL anywhere in a URL before scheme checks. Browsers
+// drop tab/newline/NUL from a URL before resolving its scheme, so control
+// characters embedded in an accepted URL must not survive into the returned
+// value either. The regex is generated from the canonical @jfs sanitizer
+// policy (family/sanitizer-policy.json in @jfs/vendor-cli — also the source
+// for @jfs/news-kit's URL guards) by `npm run policy:sync`; CI fails on drift.
+// @jfs-sanitizer-policy:url-control-chars:start const=URL_CONTROL_CHARS
 const URL_CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+// @jfs-sanitizer-policy:url-control-chars:end
 
 /**
  * Escape a string for safe insertion into innerHTML — including HTML
@@ -242,12 +246,17 @@ const _ALLOWED_ATTRS = {
 
 // Tags whose ENTIRE SUBTREE is removed rather than unwrapped. Unwrapping
 // <script>/<style> would keep their raw text as visible content, and
-// unwrapping form controls invites UI redressing. Mirrors news-kit's
-// DEFAULT_BLOCKED (lowercase — _scrub compares lowercased tag names).
+// unwrapping form controls invites UI redressing. The list is generated from
+// the canonical @jfs sanitizer policy (family/sanitizer-policy.json in
+// @jfs/vendor-cli — also the source for news-kit's DEFAULT_BLOCKED; lowercase
+// here because _scrub compares lowercased tag names) by `npm run policy:sync`;
+// CI fails on drift.
 const _BLOCKED_TAGS = new Set([
+    // @jfs-sanitizer-policy:blocked-tags:start case=lower quote=double
     "script", "style", "iframe", "noscript", "form", "input", "button",
     "select", "textarea", "svg", "math", "video", "audio", "object", "embed",
     "link", "meta", "base", "title", "template",
+    // @jfs-sanitizer-policy:blocked-tags:end
 ]);
 
 const _XHTML_NS = "http://www.w3.org/1999/xhtml";
