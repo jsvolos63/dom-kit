@@ -1,6 +1,6 @@
 {
   "name": "@jfs/dom-kit",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Shared, dependency-free DOM/escaping primitives (HTML escaping, URL + image-src guards, dual innerHTML/setAttribute URL sanitizers, whitelist HTML sanitizer, and an auto-escaping el() element builder) extracted from the JFS family of buildless static sites.",
   "type": "module",
   "license": "MIT",
@@ -34,10 +34,12 @@
     "element-builder"
   ],
   "scripts": {
-    "test": "node --test test.mjs test-vendor.mjs"
+    "test": "node --test test.mjs test-vendor.mjs",
+    "policy:sync": "jfs-sanitizer-policy-sync index.js",
+    "policy:check": "jfs-sanitizer-policy-sync --check index.js"
   },
   "dependencies": {
-    "@jfs/vendor-cli": "github:jsvolos63/vendor-cli#933ab4010477c6e290305f2adca050bb90889a16"
+    "@jfs/vendor-cli": "github:jsvolos63/vendor-cli#b95e4c91bb7aa5b653cd8bf5f7c5bc4b012d3ad5"
   },
   "devDependencies": {
     "jsdom": "^29.1.1"

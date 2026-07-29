@@ -20,5 +20,6 @@ jobs:
     with:
       run: |
         node --check index.js
+        npm run policy:check
         npm test
       version-guard-paths: index.js bin
