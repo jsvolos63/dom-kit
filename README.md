@@ -1,5 +1,12 @@
 # @jfs/dom-kit
 
+> **RETIRED — absorbed by [`@jfs/news-kit`](https://github.com/jsvolos63/news-kit) at v0.12.0.**
+> Every export here (the escaper, the URL guards, the sanitizer, the `el()`
+> builder) ships from news-kit under the same names, and every consumer has
+> migrated its pins and imports. This repo is kept read-only as history: do
+> not edit it, pin it, or vendor from it. File issues and changes against
+> news-kit.
+
 Shared, dependency-free **DOM / escaping / URL-guard primitives** for the JFS
 family of buildless static sites (market-monitor, Surf-Tracker, FlightCheck,
 JFS-Sports, Art-Gallery-, Weather, BearsMockDraft, Zepbound-).

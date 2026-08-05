@@ -1,5 +1,12 @@
 # @jfs/dom-kit — working notes for Claude
 
+> **RETIRED — absorbed by [`@jfs/news-kit`](https://github.com/jsvolos63/news-kit) at v0.12.0.**
+> Every export here (the escaper, the URL guards, the sanitizer, the `el()`
+> builder) ships from news-kit under the same names, and every consumer has
+> migrated its pins and imports. This repo is kept read-only as history: do
+> not edit it, pin it, or vendor from it. File issues and changes against
+> news-kit.
+
 Shared, dependency-free DOM/escaping primitives (HTML escaping, URL +
 image-src guards, dual innerHTML/setAttribute URL sanitizers, whitelist
 HTML sanitizer, and an auto-escaping `el()` element builder) extracted
@@ -31,5 +38,14 @@ repo needs the same code, AND drift between the existing copies has already
 caused a real bug or a manual reconciliation. Until then, copy-pasting
 between two repos is cheaper than a new repo's permanent CI, pin, and
 vendoring overhead. Prefer growing an existing kit over minting a new one.
+
+### CI on automated pull requests
+
+A push from an automated session does not fire `pull_request` workflows, so
+a session-opened PR starts with no CI run of its own. Every repo's CI
+workflow carries `workflow_dispatch:` so the session can run the same checks
+by hand: dispatch CI on the branch, and do not merge until that run is green
+on the head commit. A merge with no CI run defeats every gate the family
+maintains.
 
 <!-- jfs-family-conventions:end -->
